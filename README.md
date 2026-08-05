@@ -1,4 +1,4 @@
-# 🍽️ AI Restaurant Phone Operator
+# AI Restaurant Phone Operator
 
 **Inbound-Only, Revenue-Safe AI Phone System for Restaurants**
 
@@ -8,25 +8,25 @@ An intelligent n8n-powered phone operator that handles inbound customer calls du
 
 ---
 
-## ✨ Key Features
+##  Key Features
 
-### 🎛️ Instant Toggle Control
+### Instant Toggle Control
 - **AI ON** → Agent answers calls, takes orders, confirms details, logs everything
 - **AI OFF** → Calls route directly to restaurant staff with zero interference
 
-### 📞 Smart Call Handling
+###  Smart Call Handling
 - Natural, branded voice responses
 - Intent detection (orders, menu questions, hours, reservations)
 - Structured order taking with confirmation
 - SMS/POS integration for order submission
 
-### 🛡️ Built-in Safety Controls
+###  Built-in Safety Controls
 - Order confirmation before submission
 - Human handoff on uncertainty, edge cases, or frustration
 - Manual override at any time
 - Context passing during transfers
 
-### 📊 Complete Data Logging
+### Complete Data Logging
 - Full call recordings
 - Real-time transcripts
 - Order details with modifiers
@@ -35,7 +35,7 @@ An intelligent n8n-powered phone operator that handles inbound customer calls du
 
 ---
 
-## 🏗️ System Architecture
+##  System Architecture
 
 ```
 ┌─────────────────────────────────────────────────────────────────┐
@@ -81,7 +81,7 @@ An intelligent n8n-powered phone operator that handles inbound customer calls du
 
 ---
 
-## 📁 Project Structure
+## Project Structure
 
 ```
 ai_calling_agent/
@@ -108,7 +108,7 @@ ai_calling_agent/
 
 ---
 
-## 🚀 Quick Start
+## Quick Start
 
 ### Prerequisites
 
@@ -151,7 +151,7 @@ ai_calling_agent/
 
 ---
 
-## 📊 Analytics Dashboard
+## Analytics Dashboard
 
 Access real-time insights at your dashboard URL:
 
@@ -167,7 +167,7 @@ Access real-time insights at your dashboard URL:
 
 ---
 
-## 🔌 Integrations
+## Integrations
 
 The system integrates with:
 
@@ -181,7 +181,7 @@ The system integrates with:
 
 ---
 
-## 🛡️ Safety & Fallback Rules
+## Safety & Fallback Rules
 
 The AI automatically transfers to human staff when:
 
@@ -205,21 +205,7 @@ The AI automatically transfers to human staff when:
 | n8n Cloud | $20-50/month |
 | Airtable | Free-$20/month |
 
-**Average cost per AI-handled call: $0.05-0.15**
-
----
-
-## 📝 License
-
-MIT License - See [LICENSE](LICENSE) for details.
-
----
-
-## 🤝 Support
-
-- 📧 Email: support@example.com
-- 💬 Discord: [Join Community](https://discord.gg/example)
-- 📚 Docs: [Full Documentation](https://docs.example.com)
+**Average cost per AI-handled call: $0.05-0.15*
 
 ---
 
