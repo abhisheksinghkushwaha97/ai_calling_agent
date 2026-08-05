@@ -4,8 +4,6 @@
 
 An intelligent n8n-powered phone operator that handles inbound customer calls during busy hours — taking orders, answering questions, and seamlessly routing complex requests to human staff.
 
-![System Overview](docs/assets/system-overview.png)
-
 ---
 
 ##  Key Features
@@ -181,21 +179,7 @@ The system integrates with:
 
 ---
 
-## Safety & Fallback Rules
-
-The AI automatically transfers to human staff when:
-
-- ❌ Custom/complex requests detected
-- ❌ Ambiguous menu items mentioned
-- ❌ 3+ clarification attempts needed
-- ❌ Negative sentiment detected
-- ❌ Customer explicitly requests human
-- ❌ Order value exceeds threshold
-- ❌ Allergy/dietary concerns mentioned
-
----
-
-## 💰 Pricing Estimates
+##  Pricing Estimates
 
 | Component | Approximate Cost |
 |-----------|-----------------|
