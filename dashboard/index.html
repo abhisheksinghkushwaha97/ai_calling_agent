@@ -1,0 +1,237 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>AI Phone Operator Dashboard</title>
+    <link rel="stylesheet" href="styles.css">
+    <link rel="preconnect" href="https://fonts.googleapis.com">
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+    <link href="https://fonts.googleapis.com/css2?family=DM+Sans:ital,opsz,wght@0,9..40,100..1000;1,9..40,100..1000&family=Space+Mono:wght@400;700&display=swap" rel="stylesheet">
+</head>
+<body>
+    <div class="dashboard">
+        <!-- Sidebar -->
+        <aside class="sidebar">
+            <div class="logo">
+                <span class="logo-icon">📞</span>
+                <span class="logo-text">AI Phone<br>Operator</span>
+            </div>
+            <nav class="nav">
+                <a href="#" class="nav-item active" data-section="overview">
+                    <span class="nav-icon">📊</span>
+                    <span>Overview</span>
+                </a>
+                <a href="#" class="nav-item" data-section="calls">
+                    <span class="nav-icon">📞</span>
+                    <span>Calls</span>
+                </a>
+                <a href="#" class="nav-item" data-section="orders">
+                    <span class="nav-icon">🛒</span>
+                    <span>Orders</span>
+                </a>
+                <a href="#" class="nav-item" data-section="analytics">
+                    <span class="nav-icon">📈</span>
+                    <span>Analytics</span>
+                </a>
+                <a href="#" class="nav-item" data-section="settings">
+                    <span class="nav-icon">⚙️</span>
+                    <span>Settings</span>
+                </a>
+            </nav>
+            <div class="sidebar-footer">
+                <div class="ai-status" id="ai-status">
+                    <span class="status-dot"></span>
+                    <span class="status-text">AI Active</span>
+                </div>
+            </div>
+        </aside>
+
+        <!-- Main Content -->
+        <main class="main-content">
+            <!-- Header -->
+            <header class="header">
+                <div class="header-left">
+                    <h1 class="page-title">Dashboard Overview</h1>
+                    <p class="page-subtitle">Real-time insights for your AI phone system</p>
+                </div>
+                <div class="header-right">
+                    <div class="date-filter">
+                        <button class="filter-btn active" data-range="today">Today</button>
+                        <button class="filter-btn" data-range="week">This Week</button>
+                        <button class="filter-btn" data-range="month">This Month</button>
+                    </div>
+                    <div class="toggle-container">
+                        <label class="ai-toggle">
+                            <input type="checkbox" id="ai-toggle-switch" checked>
+                            <span class="toggle-slider"></span>
+                            <span class="toggle-label">AI Mode</span>
+                        </label>
+                    </div>
+                </div>
+            </header>
+
+            <!-- Stats Grid -->
+            <section class="stats-grid">
+                <div class="stat-card primary">
+                    <div class="stat-icon">📞</div>
+                    <div class="stat-content">
+                        <span class="stat-value" id="total-calls">--</span>
+                        <span class="stat-label">Total Calls</span>
+                    </div>
+                    <div class="stat-trend up">
+                        <span>↑ 12%</span>
+                    </div>
+                </div>
+                <div class="stat-card success">
+                    <div class="stat-icon">🤖</div>
+                    <div class="stat-content">
+                        <span class="stat-value" id="ai-calls">--</span>
+                        <span class="stat-label">AI Handled</span>
+                    </div>
+                    <div class="stat-trend up">
+                        <span>↑ 8%</span>
+                    </div>
+                </div>
+                <div class="stat-card warning">
+                    <div class="stat-icon">🛒</div>
+                    <div class="stat-content">
+                        <span class="stat-value" id="orders-count">--</span>
+                        <span class="stat-label">Orders Placed</span>
+                    </div>
+                    <div class="stat-trend up">
+                        <span>↑ 15%</span>
+                    </div>
+                </div>
+                <div class="stat-card revenue">
+                    <div class="stat-icon">💰</div>
+                    <div class="stat-content">
+                        <span class="stat-value" id="revenue">$--</span>
+                        <span class="stat-label">AI Revenue</span>
+                    </div>
+                    <div class="stat-trend up">
+                        <span>↑ 22%</span>
+                    </div>
+                </div>
+            </section>
+
+            <!-- Charts Row -->
+            <section class="charts-row">
+                <div class="chart-card wide">
+                    <div class="chart-header">
+                        <h3>Call Volume</h3>
+                        <div class="chart-legend">
+                            <span class="legend-item"><span class="legend-dot ai"></span> AI Handled</span>
+                            <span class="legend-item"><span class="legend-dot staff"></span> Staff Handled</span>
+                        </div>
+                    </div>
+                    <div class="chart-container" id="calls-chart">
+                        <canvas id="calls-canvas"></canvas>
+                    </div>
+                </div>
+                <div class="chart-card">
+                    <div class="chart-header">
+                        <h3>Call Distribution</h3>
+                    </div>
+                    <div class="chart-container" id="distribution-chart">
+                        <canvas id="distribution-canvas"></canvas>
+                    </div>
+                </div>
+            </section>
+
+            <!-- Bottom Row -->
+            <section class="bottom-row">
+                <!-- Recent Calls -->
+                <div class="card recent-calls">
+                    <div class="card-header">
+                        <h3>Recent Calls</h3>
+                        <a href="#" class="view-all">View All →</a>
+                    </div>
+                    <div class="calls-list" id="recent-calls-list">
+                        <div class="call-item">
+                            <div class="call-avatar">📞</div>
+                            <div class="call-info">
+                                <span class="call-phone">+1 (555) 123-4567</span>
+                                <span class="call-time">2 minutes ago</span>
+                            </div>
+                            <div class="call-status completed">
+                                <span>Completed</span>
+                            </div>
+                        </div>
+                        <div class="call-item">
+                            <div class="call-avatar">📞</div>
+                            <div class="call-info">
+                                <span class="call-phone">+1 (555) 987-6543</span>
+                                <span class="call-time">5 minutes ago</span>
+                            </div>
+                            <div class="call-status transferred">
+                                <span>Transferred</span>
+                            </div>
+                        </div>
+                        <div class="call-item">
+                            <div class="call-avatar">📞</div>
+                            <div class="call-info">
+                                <span class="call-phone">+1 (555) 456-7890</span>
+                                <span class="call-time">12 minutes ago</span>
+                            </div>
+                            <div class="call-status completed">
+                                <span>Completed</span>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+
+                <!-- Performance Metrics -->
+                <div class="card metrics">
+                    <div class="card-header">
+                        <h3>Performance</h3>
+                    </div>
+                    <div class="metrics-list">
+                        <div class="metric-item">
+                            <span class="metric-label">Avg Call Duration</span>
+                            <span class="metric-value" id="avg-duration">-- sec</span>
+                            <div class="metric-bar">
+                                <div class="metric-fill" style="width: 65%"></div>
+                            </div>
+                        </div>
+                        <div class="metric-item">
+                            <span class="metric-label">AI Handle Rate</span>
+                            <span class="metric-value" id="ai-rate">--%</span>
+                            <div class="metric-bar">
+                                <div class="metric-fill success" style="width: 84%"></div>
+                            </div>
+                        </div>
+                        <div class="metric-item">
+                            <span class="metric-label">Human Handoff Rate</span>
+                            <span class="metric-value" id="handoff-rate">--%</span>
+                            <div class="metric-bar">
+                                <div class="metric-fill warning" style="width: 16%"></div>
+                            </div>
+                        </div>
+                        <div class="metric-item">
+                            <span class="metric-label">Order Conversion</span>
+                            <span class="metric-value" id="conversion-rate">--%</span>
+                            <div class="metric-bar">
+                                <div class="metric-fill" style="width: 72%"></div>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+
+                <!-- Peak Hours -->
+                <div class="card peak-hours">
+                    <div class="card-header">
+                        <h3>Peak Hours</h3>
+                    </div>
+                    <div class="hours-grid" id="peak-hours-grid">
+                        <!-- Generated by JS -->
+                    </div>
+                </div>
+            </section>
+        </main>
+    </div>
+
+    <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
+    <script src="app.js"></script>
+</body>
+</html>

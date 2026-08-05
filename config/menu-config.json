@@ -1,0 +1,389 @@
+{
+  "restaurant": {
+    "name": "Joe's Pizza",
+    "tagline": "Authentic New York Style Pizza Since 1985",
+    "address": "123 Main Street, New York, NY 10001",
+    "phone": "+1-555-123-4567",
+    "hours": {
+      "monday": "11:00 AM - 10:00 PM",
+      "tuesday": "11:00 AM - 10:00 PM",
+      "wednesday": "11:00 AM - 10:00 PM",
+      "thursday": "11:00 AM - 10:00 PM",
+      "friday": "11:00 AM - 11:00 PM",
+      "saturday": "11:00 AM - 11:00 PM",
+      "sunday": "12:00 PM - 9:00 PM"
+    },
+    "timezone": "America/New_York"
+  },
+  "menu": {
+    "categories": [
+      {
+        "name": "Pizzas",
+        "description": "Hand-tossed New York style pizzas",
+        "items": [
+          {
+            "id": "pizza-margherita",
+            "name": "Margherita Pizza",
+            "description": "San Marzano tomato sauce, fresh mozzarella, basil, olive oil",
+            "prices": {
+              "small": 12.99,
+              "medium": 16.99,
+              "large": 19.99
+            },
+            "defaultSize": "large",
+            "prepTime": 15,
+            "popular": true,
+            "modifiers": [
+              "extra cheese",
+              "light sauce",
+              "well done",
+              "light on cheese"
+            ],
+            "allergens": ["gluten", "dairy"]
+          },
+          {
+            "id": "pizza-pepperoni",
+            "name": "Pepperoni Pizza",
+            "description": "Tomato sauce, mozzarella, premium pepperoni",
+            "prices": {
+              "small": 13.99,
+              "medium": 17.99,
+              "large": 21.99
+            },
+            "defaultSize": "large",
+            "prepTime": 15,
+            "popular": true,
+            "modifiers": [
+              "extra pepperoni",
+              "extra cheese",
+              "light sauce",
+              "well done"
+            ],
+            "allergens": ["gluten", "dairy"]
+          },
+          {
+            "id": "pizza-supreme",
+            "name": "Supreme Pizza",
+            "description": "Pepperoni, sausage, bell peppers, onions, mushrooms, olives",
+            "prices": {
+              "small": 15.99,
+              "medium": 19.99,
+              "large": 24.99
+            },
+            "defaultSize": "large",
+            "prepTime": 18,
+            "popular": true,
+            "modifiers": [
+              "no olives",
+              "no onions",
+              "extra cheese",
+              "light sauce"
+            ],
+            "allergens": ["gluten", "dairy"]
+          },
+          {
+            "id": "pizza-veggie",
+            "name": "Garden Veggie Pizza",
+            "description": "Tomato sauce, mozzarella, mushrooms, peppers, onions, tomatoes, spinach",
+            "prices": {
+              "small": 14.99,
+              "medium": 18.99,
+              "large": 23.99
+            },
+            "defaultSize": "large",
+            "prepTime": 15,
+            "popular": false,
+            "modifiers": [
+              "no onions",
+              "add jalapeños",
+              "extra cheese",
+              "light cheese"
+            ],
+            "allergens": ["gluten", "dairy"],
+            "tags": ["vegetarian"]
+          },
+          {
+            "id": "pizza-bbq-chicken",
+            "name": "BBQ Chicken Pizza",
+            "description": "BBQ sauce, grilled chicken, red onions, cilantro, mozzarella",
+            "prices": {
+              "small": 15.99,
+              "medium": 19.99,
+              "large": 24.99
+            },
+            "defaultSize": "large",
+            "prepTime": 18,
+            "popular": false,
+            "modifiers": [
+              "no onions",
+              "no cilantro",
+              "extra chicken",
+              "extra cheese"
+            ],
+            "allergens": ["gluten", "dairy"]
+          }
+        ]
+      },
+      {
+        "name": "Appetizers",
+        "description": "Start your meal right",
+        "items": [
+          {
+            "id": "app-garlic-knots",
+            "name": "Garlic Knots",
+            "description": "Fresh baked, brushed with garlic butter and parsley (6 pieces)",
+            "prices": {
+              "regular": 5.99
+            },
+            "prepTime": 8,
+            "popular": true,
+            "modifiers": [
+              "extra garlic butter"
+            ],
+            "allergens": ["gluten", "dairy"]
+          },
+          {
+            "id": "app-mozzarella-sticks",
+            "name": "Mozzarella Sticks",
+            "description": "Breaded and fried, served with marinara (6 pieces)",
+            "prices": {
+              "regular": 8.99
+            },
+            "prepTime": 10,
+            "popular": true,
+            "modifiers": [
+              "extra marinara"
+            ],
+            "allergens": ["gluten", "dairy"]
+          },
+          {
+            "id": "app-wings",
+            "name": "Chicken Wings",
+            "description": "Crispy wings with your choice of sauce (10 pieces)",
+            "prices": {
+              "regular": 12.99
+            },
+            "prepTime": 15,
+            "popular": true,
+            "modifiers": [
+              "buffalo",
+              "bbq",
+              "garlic parmesan",
+              "plain",
+              "extra crispy"
+            ],
+            "allergens": ["dairy"]
+          }
+        ]
+      },
+      {
+        "name": "Salads",
+        "description": "Fresh and healthy options",
+        "items": [
+          {
+            "id": "salad-caesar",
+            "name": "Caesar Salad",
+            "description": "Romaine lettuce, parmesan, croutons, caesar dressing",
+            "prices": {
+              "regular": 10.99,
+              "large": 13.99
+            },
+            "defaultSize": "regular",
+            "prepTime": 5,
+            "popular": true,
+            "modifiers": [
+              "add chicken +$4",
+              "add shrimp +$6",
+              "no croutons",
+              "dressing on side"
+            ],
+            "allergens": ["gluten", "dairy", "fish"]
+          },
+          {
+            "id": "salad-house",
+            "name": "House Salad",
+            "description": "Mixed greens, tomatoes, cucumbers, red onions, Italian dressing",
+            "prices": {
+              "regular": 8.99,
+              "large": 11.99
+            },
+            "defaultSize": "regular",
+            "prepTime": 5,
+            "popular": false,
+            "modifiers": [
+              "add chicken +$4",
+              "no onions",
+              "dressing on side"
+            ],
+            "allergens": [],
+            "tags": ["vegetarian", "vegan-option"]
+          }
+        ]
+      },
+      {
+        "name": "Pasta",
+        "description": "Classic Italian pasta dishes",
+        "items": [
+          {
+            "id": "pasta-spaghetti",
+            "name": "Spaghetti & Meatballs",
+            "description": "Spaghetti with homemade meatballs in marinara sauce",
+            "prices": {
+              "regular": 14.99
+            },
+            "prepTime": 15,
+            "popular": true,
+            "modifiers": [
+              "extra meatballs +$3",
+              "no meatballs",
+              "add parmesan"
+            ],
+            "allergens": ["gluten", "dairy"]
+          },
+          {
+            "id": "pasta-alfredo",
+            "name": "Fettuccine Alfredo",
+            "description": "Fettuccine in creamy parmesan alfredo sauce",
+            "prices": {
+              "regular": 13.99
+            },
+            "prepTime": 12,
+            "popular": false,
+            "modifiers": [
+              "add chicken +$4",
+              "add shrimp +$6",
+              "add broccoli +$2"
+            ],
+            "allergens": ["gluten", "dairy"],
+            "tags": ["vegetarian"]
+          }
+        ]
+      },
+      {
+        "name": "Drinks",
+        "description": "Beverages",
+        "items": [
+          {
+            "id": "drink-soda",
+            "name": "Fountain Soda",
+            "description": "Coca-Cola, Diet Coke, Sprite, or Fanta",
+            "prices": {
+              "regular": 2.49,
+              "large": 2.99
+            },
+            "defaultSize": "regular",
+            "prepTime": 1,
+            "popular": true,
+            "modifiers": [
+              "no ice",
+              "light ice"
+            ],
+            "allergens": []
+          },
+          {
+            "id": "drink-water",
+            "name": "Bottled Water",
+            "description": "Purified spring water",
+            "prices": {
+              "regular": 1.99
+            },
+            "prepTime": 0,
+            "popular": false,
+            "modifiers": [],
+            "allergens": []
+          }
+        ]
+      },
+      {
+        "name": "Desserts",
+        "description": "Sweet endings",
+        "items": [
+          {
+            "id": "dessert-tiramisu",
+            "name": "Tiramisu",
+            "description": "Classic Italian dessert with espresso-soaked ladyfingers and mascarpone",
+            "prices": {
+              "regular": 7.99
+            },
+            "prepTime": 2,
+            "popular": true,
+            "modifiers": [],
+            "allergens": ["gluten", "dairy", "eggs"],
+            "tags": ["contains-alcohol"]
+          },
+          {
+            "id": "dessert-cannoli",
+            "name": "Cannoli",
+            "description": "Crispy shell filled with sweet ricotta cream (2 pieces)",
+            "prices": {
+              "regular": 5.99
+            },
+            "prepTime": 2,
+            "popular": true,
+            "modifiers": [
+              "chocolate chips"
+            ],
+            "allergens": ["gluten", "dairy"]
+          }
+        ]
+      }
+    ]
+  },
+  "specials": [
+    {
+      "id": "special-lunch",
+      "name": "Lunch Special",
+      "description": "Any personal pizza + drink",
+      "price": 9.99,
+      "available": {
+        "days": ["monday", "tuesday", "wednesday", "thursday", "friday"],
+        "startTime": "11:00",
+        "endTime": "15:00"
+      }
+    },
+    {
+      "id": "special-family",
+      "name": "Family Deal",
+      "description": "2 large pizzas + garlic knots + 2 liter soda",
+      "price": 39.99,
+      "available": {
+        "days": ["monday", "tuesday", "wednesday", "thursday", "friday", "saturday", "sunday"]
+      }
+    },
+    {
+      "id": "special-taco-tuesday",
+      "name": "Taco Tuesday",
+      "description": "20% off all pizzas",
+      "discount": 0.20,
+      "available": {
+        "days": ["tuesday"]
+      }
+    }
+  ],
+  "orderSettings": {
+    "minimumOrderValue": 10.00,
+    "deliveryMinimum": 15.00,
+    "freeDeliveryThreshold": 30.00,
+    "deliveryFee": 3.99,
+    "taxRate": 0.08875,
+    "tipSuggestions": [0.15, 0.18, 0.20, 0.25],
+    "defaultPickupTime": 25,
+    "maxFutureOrderDays": 7
+  },
+  "aiSettings": {
+    "greetingTemplate": "Thank you for calling {restaurantName}! How can I help you today?",
+    "confirmationTemplate": "To confirm your order: {orderSummary}. Your total is {total}. Is that correct?",
+    "closingTemplate": "Your order will be ready in about {pickupTime} minutes. Thank you for calling {restaurantName}!",
+    "transferPhrases": [
+      "allergy",
+      "allergic",
+      "gluten free",
+      "celiac",
+      "talk to someone",
+      "speak to a person",
+      "manager"
+    ],
+    "maxClarifications": 2,
+    "sentimentThreshold": -0.5
+  }
+}

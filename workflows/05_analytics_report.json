@@ -1,0 +1,350 @@
+{
+  "name": "05 - Analytics Report Generator",
+  "nodes": [
+    {
+      "parameters": {
+        "rule": {
+          "interval": [
+            {
+              "field": "hours",
+              "hoursInterval": 24
+            }
+          ]
+        }
+      },
+      "id": "schedule-daily",
+      "name": "Daily Report Trigger",
+      "type": "n8n-nodes-base.scheduleTrigger",
+      "typeVersion": 1.2,
+      "position": [250, 300]
+    },
+    {
+      "parameters": {
+        "httpMethod": "GET",
+        "path": "analytics",
+        "responseMode": "responseNode",
+        "options": {}
+      },
+      "id": "webhook-analytics",
+      "name": "Analytics API Webhook",
+      "type": "n8n-nodes-base.webhook",
+      "typeVersion": 2,
+      "position": [250, 500],
+      "webhookId": "analytics-api"
+    },
+    {
+      "parameters": {
+        "operation": "search",
+        "base": {
+          "__rl": true,
+          "mode": "id",
+          "value": "={{ $env.AIRTABLE_BASE_ID }}"
+        },
+        "table": {
+          "__rl": true,
+          "mode": "id",
+          "value": "Call_Logs"
+        },
+        "options": {}
+      },
+      "id": "get-all-calls",
+      "name": "Get All Call Logs",
+      "type": "n8n-nodes-base.airtable",
+      "typeVersion": 2,
+      "position": [470, 400],
+      "credentials": {
+        "airtableTokenApi": {
+          "id": "airtable-creds",
+          "name": "Airtable Token"
+        }
+      }
+    },
+    {
+      "parameters": {
+        "operation": "search",
+        "base": {
+          "__rl": true,
+          "mode": "id",
+          "value": "={{ $env.AIRTABLE_BASE_ID }}"
+        },
+        "table": {
+          "__rl": true,
+          "mode": "id",
+          "value": "Orders"
+        },
+        "options": {}
+      },
+      "id": "get-all-orders",
+      "name": "Get All Orders",
+      "type": "n8n-nodes-base.airtable",
+      "typeVersion": 2,
+      "position": [690, 400],
+      "credentials": {
+        "airtableTokenApi": {
+          "id": "airtable-creds",
+          "name": "Airtable Token"
+        }
+      }
+    },
+    {
+      "parameters": {
+        "operation": "search",
+        "base": {
+          "__rl": true,
+          "mode": "id",
+          "value": "={{ $env.AIRTABLE_BASE_ID }}"
+        },
+        "table": {
+          "__rl": true,
+          "mode": "id",
+          "value": "Handoffs"
+        },
+        "options": {}
+      },
+      "id": "get-all-handoffs",
+      "name": "Get All Handoffs",
+      "type": "n8n-nodes-base.airtable",
+      "typeVersion": 2,
+      "position": [910, 400],
+      "credentials": {
+        "airtableTokenApi": {
+          "id": "airtable-creds",
+          "name": "Airtable Token"
+        }
+      }
+    },
+    {
+      "parameters": {
+        "jsCode": "// Gather all data\nconst calls = $('Get All Call Logs').all();\nconst orders = $('Get All Orders').all();\nconst handoffs = $('Get All Handoffs').all();\n\n// Date filtering helpers\nconst now = new Date();\nconst today = new Date(now.getFullYear(), now.getMonth(), now.getDate());\nconst yesterday = new Date(today.getTime() - 24 * 60 * 60 * 1000);\nconst weekAgo = new Date(today.getTime() - 7 * 24 * 60 * 60 * 1000);\nconst monthAgo = new Date(today.getTime() - 30 * 24 * 60 * 60 * 1000);\n\n// Filter calls by time period\nconst todayCalls = calls.filter(c => new Date(c.json.fields.Call_Start) >= today);\nconst weekCalls = calls.filter(c => new Date(c.json.fields.Call_Start) >= weekAgo);\nconst monthCalls = calls.filter(c => new Date(c.json.fields.Call_Start) >= monthAgo);\n\n// Calculate metrics\nconst totalCalls = calls.length;\nconst aiHandledCalls = calls.filter(c => c.json.fields.Handled_By === 'AI').length;\nconst staffHandledCalls = calls.filter(c => c.json.fields.Handled_By === 'Staff').length;\nconst transferredCalls = calls.filter(c => c.json.fields.Status === 'Transferred').length;\n\n// Order metrics\nconst totalOrders = orders.length;\nconst aiOrders = orders.filter(o => o.json.fields.Source === 'AI Phone').length;\nconst totalRevenue = orders.reduce((sum, o) => sum + (parseFloat(o.json.fields.Estimated_Total) || 0), 0);\nconst aiRevenue = orders\n  .filter(o => o.json.fields.Source === 'AI Phone')\n  .reduce((sum, o) => sum + (parseFloat(o.json.fields.Estimated_Total) || 0), 0);\n\n// Duration metrics\nconst aiCallDurations = calls\n  .filter(c => c.json.fields.Handled_By === 'AI' && c.json.fields.Duration_Seconds)\n  .map(c => c.json.fields.Duration_Seconds);\nconst avgDuration = aiCallDurations.length > 0 \n  ? aiCallDurations.reduce((a, b) => a + b, 0) / aiCallDurations.length \n  : 0;\n\n// Peak hours analysis\nconst hourCounts = {};\ncalls.forEach(c => {\n  const hour = c.json.fields.Hour_Of_Day;\n  if (hour !== undefined) {\n    hourCounts[hour] = (hourCounts[hour] || 0) + 1;\n  }\n});\nconst peakHour = Object.entries(hourCounts)\n  .sort((a, b) => b[1] - a[1])[0];\n\n// Day of week analysis\nconst dayCounts = {};\ncalls.forEach(c => {\n  const day = c.json.fields.Day_Of_Week;\n  if (day) {\n    dayCounts[day] = (dayCounts[day] || 0) + 1;\n  }\n});\nconst busiestDay = Object.entries(dayCounts)\n  .sort((a, b) => b[1] - a[1])[0];\n\n// Handoff analysis\nconst handoffReasons = {};\nhandoffs.forEach(h => {\n  const reason = h.json.fields.Reason || 'Unknown';\n  handoffReasons[reason] = (handoffReasons[reason] || 0) + 1;\n});\n\n// Cost analysis\nconst totalCost = calls.reduce((sum, c) => sum + (parseFloat(c.json.fields.Estimated_Cost) || 0), 0);\n\n// Today's metrics\nconst todayAICalls = todayCalls.filter(c => c.json.fields.Handled_By === 'AI').length;\nconst todayOrders = orders.filter(o => new Date(o.json.fields.Order_Time) >= today).length;\nconst todayRevenue = orders\n  .filter(o => new Date(o.json.fields.Order_Time) >= today)\n  .reduce((sum, o) => sum + (parseFloat(o.json.fields.Estimated_Total) || 0), 0);\n\nreturn {\n  summary: {\n    totalCalls,\n    aiHandledCalls,\n    staffHandledCalls,\n    transferredCalls,\n    handoffRate: totalCalls > 0 ? ((transferredCalls / aiHandledCalls) * 100).toFixed(1) : 0,\n    aiHandleRate: totalCalls > 0 ? ((aiHandledCalls / totalCalls) * 100).toFixed(1) : 0\n  },\n  orders: {\n    totalOrders,\n    aiOrders,\n    totalRevenue: totalRevenue.toFixed(2),\n    aiRevenue: aiRevenue.toFixed(2),\n    revenueRecovered: aiRevenue.toFixed(2)\n  },\n  performance: {\n    avgCallDuration: avgDuration.toFixed(1),\n    totalCost: totalCost.toFixed(2),\n    costPerCall: totalCalls > 0 ? (totalCost / totalCalls).toFixed(4) : 0,\n    costPerOrder: aiOrders > 0 ? (totalCost / aiOrders).toFixed(4) : 0\n  },\n  patterns: {\n    peakHour: peakHour ? `${peakHour[0]}:00` : 'N/A',\n    peakHourCalls: peakHour ? peakHour[1] : 0,\n    busiestDay: busiestDay ? busiestDay[0] : 'N/A',\n    busiestDayCalls: busiestDay ? busiestDay[1] : 0,\n    hourlyDistribution: hourCounts,\n    dailyDistribution: dayCounts\n  },\n  handoffs: {\n    total: handoffs.length,\n    reasons: handoffReasons\n  },\n  today: {\n    calls: todayCalls.length,\n    aiCalls: todayAICalls,\n    orders: todayOrders,\n    revenue: todayRevenue.toFixed(2)\n  },\n  generatedAt: now.toISOString()\n};"
+      },
+      "id": "calculate-analytics",
+      "name": "Calculate Analytics",
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [1130, 400]
+    },
+    {
+      "parameters": {
+        "operation": "create",
+        "base": {
+          "__rl": true,
+          "mode": "id",
+          "value": "={{ $env.AIRTABLE_BASE_ID }}"
+        },
+        "table": {
+          "__rl": true,
+          "mode": "id",
+          "value": "Analytics_Reports"
+        },
+        "columns": {
+          "mappingMode": "defineBelow",
+          "value": {
+            "Report_Date": "={{ $now.format('yyyy-MM-dd') }}",
+            "Total_Calls": "={{ $json.summary.totalCalls }}",
+            "AI_Handled_Calls": "={{ $json.summary.aiHandledCalls }}",
+            "Staff_Handled_Calls": "={{ $json.summary.staffHandledCalls }}",
+            "Transferred_Calls": "={{ $json.summary.transferredCalls }}",
+            "Handoff_Rate": "={{ $json.summary.handoffRate }}",
+            "Total_Orders": "={{ $json.orders.totalOrders }}",
+            "AI_Orders": "={{ $json.orders.aiOrders }}",
+            "Total_Revenue": "={{ $json.orders.totalRevenue }}",
+            "AI_Revenue": "={{ $json.orders.aiRevenue }}",
+            "Avg_Call_Duration": "={{ $json.performance.avgCallDuration }}",
+            "Total_Cost": "={{ $json.performance.totalCost }}",
+            "Peak_Hour": "={{ $json.patterns.peakHour }}",
+            "Busiest_Day": "={{ $json.patterns.busiestDay }}",
+            "Full_Report_JSON": "={{ JSON.stringify($json) }}"
+          }
+        }
+      },
+      "id": "save-report",
+      "name": "Save Report to Airtable",
+      "type": "n8n-nodes-base.airtable",
+      "typeVersion": 2,
+      "position": [1350, 300],
+      "credentials": {
+        "airtableTokenApi": {
+          "id": "airtable-creds",
+          "name": "Airtable Token"
+        }
+      }
+    },
+    {
+      "parameters": {
+        "respondWith": "json",
+        "responseBody": "={{ JSON.stringify($('Calculate Analytics').item.json) }}",
+        "options": {
+          "responseHeaders": {
+            "entries": [
+              {
+                "name": "Access-Control-Allow-Origin",
+                "value": "*"
+              }
+            ]
+          }
+        }
+      },
+      "id": "respond-analytics",
+      "name": "Respond with Analytics",
+      "type": "n8n-nodes-base.respondToWebhook",
+      "typeVersion": 1.1,
+      "position": [1350, 500]
+    },
+    {
+      "parameters": {
+        "operation": "search",
+        "base": {
+          "__rl": true,
+          "mode": "id",
+          "value": "={{ $env.AIRTABLE_BASE_ID }}"
+        },
+        "table": {
+          "__rl": true,
+          "mode": "id",
+          "value": "Settings"
+        },
+        "filterByFormula": "={Name}=\"OWNER_EMAIL\""
+      },
+      "id": "get-owner-email",
+      "name": "Get Owner Email",
+      "type": "n8n-nodes-base.airtable",
+      "typeVersion": 2,
+      "position": [1570, 300],
+      "credentials": {
+        "airtableTokenApi": {
+          "id": "airtable-creds",
+          "name": "Airtable Token"
+        }
+      }
+    },
+    {
+      "parameters": {
+        "sendTo": "={{ $json.fields.Value }}",
+        "subject": "=📊 Daily AI Phone Report - {{ $now.format('MMM dd, yyyy') }}",
+        "emailType": "html",
+        "message": "=<html>\n<head>\n  <style>\n    body { font-family: Arial, sans-serif; max-width: 600px; margin: 0 auto; padding: 20px; }\n    .header { background: linear-gradient(135deg, #667eea 0%, #764ba2 100%); color: white; padding: 20px; border-radius: 10px; text-align: center; }\n    .card { background: #f8f9fa; border-radius: 10px; padding: 15px; margin: 15px 0; }\n    .metric { display: inline-block; width: 45%; margin: 5px; text-align: center; }\n    .metric-value { font-size: 28px; font-weight: bold; color: #333; }\n    .metric-label { font-size: 12px; color: #666; text-transform: uppercase; }\n    .highlight { color: #28a745; font-weight: bold; }\n    .section-title { border-bottom: 2px solid #667eea; padding-bottom: 5px; margin-top: 20px; }\n  </style>\n</head>\n<body>\n  <div class=\"header\">\n    <h1>🍽️ AI Phone Operator</h1>\n    <p>Daily Performance Report</p>\n  </div>\n  \n  <div class=\"card\">\n    <h3 class=\"section-title\">📞 Today's Calls</h3>\n    <div class=\"metric\">\n      <div class=\"metric-value\">{{ $('Calculate Analytics').item.json.today.calls }}</div>\n      <div class=\"metric-label\">Total Calls</div>\n    </div>\n    <div class=\"metric\">\n      <div class=\"metric-value\">{{ $('Calculate Analytics').item.json.today.aiCalls }}</div>\n      <div class=\"metric-label\">AI Handled</div>\n    </div>\n  </div>\n  \n  <div class=\"card\">\n    <h3 class=\"section-title\">💰 Today's Revenue</h3>\n    <div class=\"metric\">\n      <div class=\"metric-value\">${{ $('Calculate Analytics').item.json.today.revenue }}</div>\n      <div class=\"metric-label\">Revenue</div>\n    </div>\n    <div class=\"metric\">\n      <div class=\"metric-value\">{{ $('Calculate Analytics').item.json.today.orders }}</div>\n      <div class=\"metric-label\">Orders</div>\n    </div>\n  </div>\n  \n  <div class=\"card\">\n    <h3 class=\"section-title\">📈 All-Time Stats</h3>\n    <p><strong>Total Calls:</strong> {{ $('Calculate Analytics').item.json.summary.totalCalls }}</p>\n    <p><strong>AI Handled:</strong> {{ $('Calculate Analytics').item.json.summary.aiHandledCalls }} ({{ $('Calculate Analytics').item.json.summary.aiHandleRate }}%)</p>\n    <p><strong>Human Handoffs:</strong> {{ $('Calculate Analytics').item.json.summary.transferredCalls }} ({{ $('Calculate Analytics').item.json.summary.handoffRate }}%)</p>\n    <p><strong>Total AI Revenue:</strong> <span class=\"highlight\">${{ $('Calculate Analytics').item.json.orders.aiRevenue }}</span></p>\n  </div>\n  \n  <div class=\"card\">\n    <h3 class=\"section-title\">⏰ Patterns</h3>\n    <p><strong>Peak Hour:</strong> {{ $('Calculate Analytics').item.json.patterns.peakHour }}</p>\n    <p><strong>Busiest Day:</strong> {{ $('Calculate Analytics').item.json.patterns.busiestDay }}</p>\n    <p><strong>Avg Call Duration:</strong> {{ $('Calculate Analytics').item.json.performance.avgCallDuration }} seconds</p>\n  </div>\n  \n  <div class=\"card\">\n    <h3 class=\"section-title\">💵 Costs</h3>\n    <p><strong>Total Cost:</strong> ${{ $('Calculate Analytics').item.json.performance.totalCost }}</p>\n    <p><strong>Cost per Call:</strong> ${{ $('Calculate Analytics').item.json.performance.costPerCall }}</p>\n    <p><strong>Cost per Order:</strong> ${{ $('Calculate Analytics').item.json.performance.costPerOrder }}</p>\n  </div>\n  \n  <p style=\"text-align: center; color: #666; font-size: 12px; margin-top: 30px;\">\n    Generated by AI Restaurant Phone Operator<br>\n    {{ $now.format('MMM dd, yyyy hh:mm a') }}\n  </p>\n</body>\n</html>",
+        "options": {}
+      },
+      "id": "send-email-report",
+      "name": "Send Email Report",
+      "type": "n8n-nodes-base.emailSend",
+      "typeVersion": 2.1,
+      "position": [1790, 300],
+      "credentials": {
+        "smtp": {
+          "id": "smtp-creds",
+          "name": "SMTP"
+        }
+      }
+    }
+  ],
+  "connections": {
+    "Daily Report Trigger": {
+      "main": [
+        [
+          {
+            "node": "Get All Call Logs",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Analytics API Webhook": {
+      "main": [
+        [
+          {
+            "node": "Get All Call Logs",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Get All Call Logs": {
+      "main": [
+        [
+          {
+            "node": "Get All Orders",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Get All Orders": {
+      "main": [
+        [
+          {
+            "node": "Get All Handoffs",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Get All Handoffs": {
+      "main": [
+        [
+          {
+            "node": "Calculate Analytics",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Calculate Analytics": {
+      "main": [
+        [
+          {
+            "node": "Save Report to Airtable",
+            "type": "main",
+            "index": 0
+          },
+          {
+            "node": "Respond with Analytics",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Save Report to Airtable": {
+      "main": [
+        [
+          {
+            "node": "Get Owner Email",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Get Owner Email": {
+      "main": [
+        [
+          {
+            "node": "Send Email Report",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    }
+  },
+  "settings": {
+    "executionOrder": "v1",
+    "saveManualExecutions": true,
+    "saveExecutionProgress": true
+  },
+  "staticData": null,
+  "tags": [
+    {
+      "id": "restaurant-ai",
+      "name": "Restaurant AI"
+    }
+  ],
+  "triggerCount": 2,
+  "versionId": "1.0.0"
+}

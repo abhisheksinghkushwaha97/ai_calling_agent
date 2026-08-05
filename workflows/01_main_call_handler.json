@@ -1,0 +1,405 @@
+{
+  "name": "01 - Main Call Handler",
+  "nodes": [
+    {
+      "parameters": {
+        "httpMethod": "POST",
+        "path": "incoming-call",
+        "responseMode": "responseNode",
+        "options": {}
+      },
+      "id": "webhook-incoming-call",
+      "name": "Incoming Call Webhook",
+      "type": "n8n-nodes-base.webhook",
+      "typeVersion": 2,
+      "position": [250, 300],
+      "webhookId": "incoming-call-handler",
+      "notes": "Twilio sends POST request when call comes in"
+    },
+    {
+      "parameters": {
+        "assignments": {
+          "assignments": [
+            {
+              "id": "caller-phone",
+              "name": "callerPhone",
+              "value": "={{ $json.From }}",
+              "type": "string"
+            },
+            {
+              "id": "caller-city",
+              "name": "callerCity",
+              "value": "={{ $json.FromCity || 'Unknown' }}",
+              "type": "string"
+            },
+            {
+              "id": "call-sid",
+              "name": "callSid",
+              "value": "={{ $json.CallSid }}",
+              "type": "string"
+            },
+            {
+              "id": "restaurant-number",
+              "name": "restaurantNumber",
+              "value": "={{ $json.To }}",
+              "type": "string"
+            },
+            {
+              "id": "call-start",
+              "name": "callStartTime",
+              "value": "={{ $now.toISO() }}",
+              "type": "string"
+            }
+          ]
+        },
+        "options": {}
+      },
+      "id": "extract-call-data",
+      "name": "Extract Call Data",
+      "type": "n8n-nodes-base.set",
+      "typeVersion": 3.4,
+      "position": [470, 300]
+    },
+    {
+      "parameters": {
+        "operation": "search",
+        "base": {
+          "__rl": true,
+          "mode": "id",
+          "value": "={{ $env.AIRTABLE_BASE_ID }}"
+        },
+        "table": {
+          "__rl": true,
+          "mode": "id",
+          "value": "Settings"
+        },
+        "filterByFormula": "={Name}=\"AI_TOGGLE\""
+      },
+      "id": "check-ai-toggle",
+      "name": "Check AI Toggle Status",
+      "type": "n8n-nodes-base.airtable",
+      "typeVersion": 2,
+      "position": [690, 300],
+      "credentials": {
+        "airtableTokenApi": {
+          "id": "airtable-creds",
+          "name": "Airtable Token"
+        }
+      },
+      "notes": "Check if AI is enabled for this restaurant"
+    },
+    {
+      "parameters": {
+        "conditions": {
+          "options": {
+            "caseSensitive": true,
+            "leftValue": "",
+            "typeValidation": "strict"
+          },
+          "conditions": [
+            {
+              "id": "ai-enabled-check",
+              "leftValue": "={{ $json.fields.Value }}",
+              "rightValue": "ON",
+              "operator": {
+                "type": "string",
+                "operation": "equals"
+              }
+            }
+          ],
+          "combinator": "and"
+        },
+        "options": {}
+      },
+      "id": "ai-toggle-switch",
+      "name": "AI Enabled?",
+      "type": "n8n-nodes-base.if",
+      "typeVersion": 2,
+      "position": [910, 300]
+    },
+    {
+      "parameters": {
+        "operation": "search",
+        "base": {
+          "__rl": true,
+          "mode": "id",
+          "value": "={{ $env.AIRTABLE_BASE_ID }}"
+        },
+        "table": {
+          "__rl": true,
+          "mode": "id",
+          "value": "Settings"
+        },
+        "filterByFormula": "={Name}=\"RESTAURANT_NAME\""
+      },
+      "id": "get-restaurant-info",
+      "name": "Get Restaurant Info",
+      "type": "n8n-nodes-base.airtable",
+      "typeVersion": 2,
+      "position": [1130, 200],
+      "credentials": {
+        "airtableTokenApi": {
+          "id": "airtable-creds",
+          "name": "Airtable Token"
+        }
+      }
+    },
+    {
+      "parameters": {
+        "respondWith": "text",
+        "responseBody": "=<?xml version=\"1.0\" encoding=\"UTF-8\"?>\n<Response>\n    <Say voice=\"Polly.Joanna\">Thank you for calling {{ $json.fields.Value }}. Our AI assistant will help you today. Please hold for a moment.</Say>\n    <Redirect method=\"POST\">{{ $env.N8N_WEBHOOK_URL }}/webhook/ai-conversation?callSid={{ $('Extract Call Data').item.json.callSid }}&amp;callerPhone={{ $('Extract Call Data').item.json.callerPhone }}</Redirect>\n</Response>",
+        "options": {
+          "responseHeaders": {
+            "entries": [
+              {
+                "name": "Content-Type",
+                "value": "application/xml"
+              }
+            ]
+          }
+        }
+      },
+      "id": "respond-ai-greeting",
+      "name": "AI Greeting Response",
+      "type": "n8n-nodes-base.respondToWebhook",
+      "typeVersion": 1.1,
+      "position": [1350, 200],
+      "notes": "TwiML response with AI greeting"
+    },
+    {
+      "parameters": {
+        "operation": "search",
+        "base": {
+          "__rl": true,
+          "mode": "id",
+          "value": "={{ $env.AIRTABLE_BASE_ID }}"
+        },
+        "table": {
+          "__rl": true,
+          "mode": "id",
+          "value": "Settings"
+        },
+        "filterByFormula": "={Name}=\"STAFF_PHONE_NUMBER\""
+      },
+      "id": "get-staff-phone",
+      "name": "Get Staff Phone Number",
+      "type": "n8n-nodes-base.airtable",
+      "typeVersion": 2,
+      "position": [1130, 400],
+      "credentials": {
+        "airtableTokenApi": {
+          "id": "airtable-creds",
+          "name": "Airtable Token"
+        }
+      }
+    },
+    {
+      "parameters": {
+        "respondWith": "text",
+        "responseBody": "=<?xml version=\"1.0\" encoding=\"UTF-8\"?>\n<Response>\n    <Dial timeout=\"30\" callerId=\"{{ $('Extract Call Data').item.json.callerPhone }}\">\n        <Number>{{ $json.fields.Value }}</Number>\n    </Dial>\n    <Say voice=\"Polly.Joanna\">We're sorry, no one is available to take your call. Please try again later.</Say>\n</Response>",
+        "options": {
+          "responseHeaders": {
+            "entries": [
+              {
+                "name": "Content-Type",
+                "value": "application/xml"
+              }
+            ]
+          }
+        }
+      },
+      "id": "forward-to-staff",
+      "name": "Forward to Staff",
+      "type": "n8n-nodes-base.respondToWebhook",
+      "typeVersion": 1.1,
+      "position": [1350, 400],
+      "notes": "TwiML to forward call directly to staff"
+    },
+    {
+      "parameters": {
+        "operation": "create",
+        "base": {
+          "__rl": true,
+          "mode": "id",
+          "value": "={{ $env.AIRTABLE_BASE_ID }}"
+        },
+        "table": {
+          "__rl": true,
+          "mode": "id",
+          "value": "Call_Logs"
+        },
+        "columns": {
+          "mappingMode": "defineBelow",
+          "value": {
+            "Call_SID": "={{ $('Extract Call Data').item.json.callSid }}",
+            "Caller_Phone": "={{ $('Extract Call Data').item.json.callerPhone }}",
+            "Caller_City": "={{ $('Extract Call Data').item.json.callerCity }}",
+            "Call_Start": "={{ $('Extract Call Data').item.json.callStartTime }}",
+            "Handled_By": "=AI",
+            "Status": "In Progress"
+          }
+        }
+      },
+      "id": "log-ai-call-start",
+      "name": "Log AI Call Start",
+      "type": "n8n-nodes-base.airtable",
+      "typeVersion": 2,
+      "position": [1570, 200],
+      "credentials": {
+        "airtableTokenApi": {
+          "id": "airtable-creds",
+          "name": "Airtable Token"
+        }
+      }
+    },
+    {
+      "parameters": {
+        "operation": "create",
+        "base": {
+          "__rl": true,
+          "mode": "id",
+          "value": "={{ $env.AIRTABLE_BASE_ID }}"
+        },
+        "table": {
+          "__rl": true,
+          "mode": "id",
+          "value": "Call_Logs"
+        },
+        "columns": {
+          "mappingMode": "defineBelow",
+          "value": {
+            "Call_SID": "={{ $('Extract Call Data').item.json.callSid }}",
+            "Caller_Phone": "={{ $('Extract Call Data').item.json.callerPhone }}",
+            "Caller_City": "={{ $('Extract Call Data').item.json.callerCity }}",
+            "Call_Start": "={{ $('Extract Call Data').item.json.callStartTime }}",
+            "Handled_By": "=Staff",
+            "Status": "Forwarded"
+          }
+        }
+      },
+      "id": "log-staff-call",
+      "name": "Log Staff Call",
+      "type": "n8n-nodes-base.airtable",
+      "typeVersion": 2,
+      "position": [1570, 400],
+      "credentials": {
+        "airtableTokenApi": {
+          "id": "airtable-creds",
+          "name": "Airtable Token"
+        }
+      }
+    }
+  ],
+  "connections": {
+    "Incoming Call Webhook": {
+      "main": [
+        [
+          {
+            "node": "Extract Call Data",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Extract Call Data": {
+      "main": [
+        [
+          {
+            "node": "Check AI Toggle Status",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Check AI Toggle Status": {
+      "main": [
+        [
+          {
+            "node": "AI Enabled?",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "AI Enabled?": {
+      "main": [
+        [
+          {
+            "node": "Get Restaurant Info",
+            "type": "main",
+            "index": 0
+          }
+        ],
+        [
+          {
+            "node": "Get Staff Phone Number",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Get Restaurant Info": {
+      "main": [
+        [
+          {
+            "node": "AI Greeting Response",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "AI Greeting Response": {
+      "main": [
+        [
+          {
+            "node": "Log AI Call Start",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Get Staff Phone Number": {
+      "main": [
+        [
+          {
+            "node": "Forward to Staff",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Forward to Staff": {
+      "main": [
+        [
+          {
+            "node": "Log Staff Call",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    }
+  },
+  "settings": {
+    "executionOrder": "v1",
+    "saveManualExecutions": true,
+    "saveExecutionProgress": true,
+    "callerPolicy": "workflowsFromSameOwner"
+  },
+  "staticData": null,
+  "tags": [
+    {
+      "id": "restaurant-ai",
+      "name": "Restaurant AI"
+    }
+  ],
+  "triggerCount": 1,
+  "versionId": "1.0.0"
+}

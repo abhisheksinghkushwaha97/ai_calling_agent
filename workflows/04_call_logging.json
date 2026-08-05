@@ -1,0 +1,700 @@
+{
+  "name": "04 - Call Logging & Completion",
+  "nodes": [
+    {
+      "parameters": {
+        "httpMethod": "POST",
+        "path": "call-complete",
+        "responseMode": "responseNode",
+        "options": {}
+      },
+      "id": "webhook-call-complete",
+      "name": "Call Complete Webhook",
+      "type": "n8n-nodes-base.webhook",
+      "typeVersion": 2,
+      "position": [250, 300],
+      "webhookId": "call-complete-handler",
+      "notes": "Called by Twilio when call ends"
+    },
+    {
+      "parameters": {
+        "httpMethod": "POST",
+        "path": "order-complete",
+        "responseMode": "responseNode",
+        "options": {}
+      },
+      "id": "webhook-order-complete",
+      "name": "Order Complete Webhook",
+      "type": "n8n-nodes-base.webhook",
+      "typeVersion": 2,
+      "position": [250, 500],
+      "webhookId": "order-complete-handler"
+    },
+    {
+      "parameters": {
+        "assignments": {
+          "assignments": [
+            {
+              "id": "call-sid",
+              "name": "callSid",
+              "value": "={{ $json.CallSid || $json.query.callSid }}",
+              "type": "string"
+            },
+            {
+              "id": "call-status",
+              "name": "callStatus",
+              "value": "={{ $json.CallStatus || 'completed' }}",
+              "type": "string"
+            },
+            {
+              "id": "call-duration",
+              "name": "callDuration",
+              "value": "={{ $json.CallDuration || 0 }}",
+              "type": "number"
+            },
+            {
+              "id": "dial-status",
+              "name": "dialStatus",
+              "value": "={{ $json.DialCallStatus || '' }}",
+              "type": "string"
+            },
+            {
+              "id": "recording-url",
+              "name": "recordingUrl",
+              "value": "={{ $json.RecordingUrl || '' }}",
+              "type": "string"
+            },
+            {
+              "id": "end-time",
+              "name": "callEndTime",
+              "value": "={{ $now.toISO() }}",
+              "type": "string"
+            }
+          ]
+        },
+        "options": {}
+      },
+      "id": "extract-call-end-data",
+      "name": "Extract Call End Data",
+      "type": "n8n-nodes-base.set",
+      "typeVersion": 3.4,
+      "position": [470, 300]
+    },
+    {
+      "parameters": {
+        "operation": "search",
+        "base": {
+          "__rl": true,
+          "mode": "id",
+          "value": "={{ $env.AIRTABLE_BASE_ID }}"
+        },
+        "table": {
+          "__rl": true,
+          "mode": "id",
+          "value": "Call_Logs"
+        },
+        "filterByFormula": "={Call_SID}=\"{{ $json.callSid }}\""
+      },
+      "id": "find-call-record",
+      "name": "Find Call Record",
+      "type": "n8n-nodes-base.airtable",
+      "typeVersion": 2,
+      "position": [690, 300],
+      "credentials": {
+        "airtableTokenApi": {
+          "id": "airtable-creds",
+          "name": "Airtable Token"
+        }
+      }
+    },
+    {
+      "parameters": {
+        "operation": "search",
+        "base": {
+          "__rl": true,
+          "mode": "id",
+          "value": "={{ $env.AIRTABLE_BASE_ID }}"
+        },
+        "table": {
+          "__rl": true,
+          "mode": "id",
+          "value": "Conversation_State"
+        },
+        "filterByFormula": "={Call_SID}=\"{{ $('Extract Call End Data').item.json.callSid }}\""
+      },
+      "id": "get-conversation-final",
+      "name": "Get Final Conversation",
+      "type": "n8n-nodes-base.airtable",
+      "typeVersion": 2,
+      "position": [910, 300],
+      "credentials": {
+        "airtableTokenApi": {
+          "id": "airtable-creds",
+          "name": "Airtable Token"
+        }
+      }
+    },
+    {
+      "parameters": {
+        "operation": "update",
+        "base": {
+          "__rl": true,
+          "mode": "id",
+          "value": "={{ $env.AIRTABLE_BASE_ID }}"
+        },
+        "table": {
+          "__rl": true,
+          "mode": "id",
+          "value": "Call_Logs"
+        },
+        "id": "={{ $('Find Call Record').item.json.id }}",
+        "columns": {
+          "mappingMode": "defineBelow",
+          "value": {
+            "Status": "={{ $('Extract Call End Data').item.json.callStatus === 'completed' ? 'Completed' : 'Ended' }}",
+            "Call_End": "={{ $('Extract Call End Data').item.json.callEndTime }}",
+            "Duration_Seconds": "={{ $('Extract Call End Data').item.json.callDuration }}",
+            "Recording_URL": "={{ $('Extract Call End Data').item.json.recordingUrl }}",
+            "Transcript": "={{ $json.fields?.Conversation_History || '' }}",
+            "Final_Order": "={{ $json.fields?.Current_Order || '[]' }}"
+          }
+        }
+      },
+      "id": "update-call-record",
+      "name": "Update Call Record",
+      "type": "n8n-nodes-base.airtable",
+      "typeVersion": 2,
+      "position": [1130, 300],
+      "credentials": {
+        "airtableTokenApi": {
+          "id": "airtable-creds",
+          "name": "Airtable Token"
+        }
+      }
+    },
+    {
+      "parameters": {
+        "jsCode": "// Calculate call cost estimate\nconst durationSeconds = $('Extract Call End Data').item.json.callDuration || 0;\nconst durationMinutes = Math.ceil(durationSeconds / 60);\n\n// Cost estimates (approximate)\nconst twilioCostPerMin = 0.02;\nconst openAICostPerCall = 0.02;\nconst totalCost = (durationMinutes * twilioCostPerMin) + openAICostPerCall;\n\n// Calculate peak hour\nconst callEnd = new Date();\nconst hour = callEnd.getHours();\nconst isPeakHour = (hour >= 11 && hour <= 14) || (hour >= 17 && hour <= 21);\n\nreturn {\n  durationMinutes,\n  estimatedCost: totalCost.toFixed(4),\n  isPeakHour,\n  hourOfDay: hour,\n  dayOfWeek: callEnd.toLocaleDateString('en-US', { weekday: 'long' })\n};"
+      },
+      "id": "calculate-metrics",
+      "name": "Calculate Call Metrics",
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [1350, 300]
+    },
+    {
+      "parameters": {
+        "operation": "update",
+        "base": {
+          "__rl": true,
+          "mode": "id",
+          "value": "={{ $env.AIRTABLE_BASE_ID }}"
+        },
+        "table": {
+          "__rl": true,
+          "mode": "id",
+          "value": "Call_Logs"
+        },
+        "id": "={{ $('Find Call Record').item.json.id }}",
+        "columns": {
+          "mappingMode": "defineBelow",
+          "value": {
+            "Duration_Minutes": "={{ $json.durationMinutes }}",
+            "Estimated_Cost": "={{ $json.estimatedCost }}",
+            "Is_Peak_Hour": "={{ $json.isPeakHour }}",
+            "Hour_Of_Day": "={{ $json.hourOfDay }}",
+            "Day_Of_Week": "={{ $json.dayOfWeek }}"
+          }
+        }
+      },
+      "id": "update-call-metrics",
+      "name": "Update Call Metrics",
+      "type": "n8n-nodes-base.airtable",
+      "typeVersion": 2,
+      "position": [1570, 300],
+      "credentials": {
+        "airtableTokenApi": {
+          "id": "airtable-creds",
+          "name": "Airtable Token"
+        }
+      }
+    },
+    {
+      "parameters": {
+        "respondWith": "text",
+        "responseBody": "=<?xml version=\"1.0\" encoding=\"UTF-8\"?>\n<Response>\n    <Hangup/>\n</Response>",
+        "options": {
+          "responseHeaders": {
+            "entries": [
+              {
+                "name": "Content-Type",
+                "value": "application/xml"
+              }
+            ]
+          }
+        }
+      },
+      "id": "respond-call-complete",
+      "name": "Respond Call Complete",
+      "type": "n8n-nodes-base.respondToWebhook",
+      "typeVersion": 1.1,
+      "position": [1790, 300]
+    },
+    {
+      "parameters": {
+        "assignments": {
+          "assignments": [
+            {
+              "id": "call-sid",
+              "name": "callSid",
+              "value": "={{ $json.callSid }}",
+              "type": "string"
+            },
+            {
+              "id": "caller-phone",
+              "name": "callerPhone",
+              "value": "={{ $json.callerPhone }}",
+              "type": "string"
+            },
+            {
+              "id": "order",
+              "name": "order",
+              "value": "={{ $json.order }}",
+              "type": "string"
+            },
+            {
+              "id": "order-time",
+              "name": "orderTime",
+              "value": "={{ $now.toISO() }}",
+              "type": "string"
+            }
+          ]
+        },
+        "options": {}
+      },
+      "id": "extract-order-data",
+      "name": "Extract Order Data",
+      "type": "n8n-nodes-base.set",
+      "typeVersion": 3.4,
+      "position": [470, 500]
+    },
+    {
+      "parameters": {
+        "jsCode": "// Parse and format order for storage\nconst orderData = JSON.parse($input.first().json.order || '[]');\nconst callerPhone = $input.first().json.callerPhone;\nconst orderTime = $input.first().json.orderTime;\n\n// Calculate order total (would need menu prices from Airtable)\nlet orderTotal = 0;\nconst formattedItems = orderData.map(item => {\n  // Price lookup would happen here in production\n  const estimatedPrice = 12.99; // Placeholder\n  orderTotal += item.quantity * estimatedPrice;\n  return `${item.quantity}x ${item.item}`;\n});\n\n// Generate order number\nconst orderNumber = `ORD-${Date.now().toString().slice(-6)}`;\n\nreturn {\n  orderNumber,\n  formattedItems: formattedItems.join(', '),\n  itemCount: orderData.length,\n  estimatedTotal: orderTotal.toFixed(2),\n  orderSummary: `Order #${orderNumber}: ${formattedItems.join(', ')} - Est. $${orderTotal.toFixed(2)}`\n};"
+      },
+      "id": "format-order",
+      "name": "Format Order",
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [690, 500]
+    },
+    {
+      "parameters": {
+        "operation": "create",
+        "base": {
+          "__rl": true,
+          "mode": "id",
+          "value": "={{ $env.AIRTABLE_BASE_ID }}"
+        },
+        "table": {
+          "__rl": true,
+          "mode": "id",
+          "value": "Orders"
+        },
+        "columns": {
+          "mappingMode": "defineBelow",
+          "value": {
+            "Order_Number": "={{ $json.orderNumber }}",
+            "Call_SID": "={{ $('Extract Order Data').item.json.callSid }}",
+            "Caller_Phone": "={{ $('Extract Order Data').item.json.callerPhone }}",
+            "Items": "={{ $json.formattedItems }}",
+            "Item_Count": "={{ $json.itemCount }}",
+            "Estimated_Total": "={{ $json.estimatedTotal }}",
+            "Raw_Order_Data": "={{ $('Extract Order Data').item.json.order }}",
+            "Order_Time": "={{ $('Extract Order Data').item.json.orderTime }}",
+            "Status": "Pending",
+            "Source": "AI Phone"
+          }
+        }
+      },
+      "id": "create-order",
+      "name": "Create Order Record",
+      "type": "n8n-nodes-base.airtable",
+      "typeVersion": 2,
+      "position": [910, 500],
+      "credentials": {
+        "airtableTokenApi": {
+          "id": "airtable-creds",
+          "name": "Airtable Token"
+        }
+      }
+    },
+    {
+      "parameters": {
+        "operation": "search",
+        "base": {
+          "__rl": true,
+          "mode": "id",
+          "value": "={{ $env.AIRTABLE_BASE_ID }}"
+        },
+        "table": {
+          "__rl": true,
+          "mode": "id",
+          "value": "Settings"
+        },
+        "filterByFormula": "={Name}=\"TWILIO_PHONE_NUMBER\""
+      },
+      "id": "get-twilio-for-sms",
+      "name": "Get Twilio Number",
+      "type": "n8n-nodes-base.airtable",
+      "typeVersion": 2,
+      "position": [1130, 500],
+      "credentials": {
+        "airtableTokenApi": {
+          "id": "airtable-creds",
+          "name": "Airtable Token"
+        }
+      }
+    },
+    {
+      "parameters": {
+        "from": "={{ $json.fields.Value }}",
+        "to": "={{ $('Extract Order Data').item.json.callerPhone }}",
+        "message": "=Thank you for your order! 🍽️\n\n{{ $('Format Order').item.json.orderSummary }}\n\nWe'll have it ready soon. Questions? Call us back anytime!"
+      },
+      "id": "send-order-confirmation",
+      "name": "Send Order Confirmation SMS",
+      "type": "n8n-nodes-base.twilio",
+      "typeVersion": 1,
+      "position": [1350, 500],
+      "credentials": {
+        "twilioApi": {
+          "id": "twilio-creds",
+          "name": "Twilio API"
+        }
+      }
+    },
+    {
+      "parameters": {
+        "operation": "search",
+        "base": {
+          "__rl": true,
+          "mode": "id",
+          "value": "={{ $env.AIRTABLE_BASE_ID }}"
+        },
+        "table": {
+          "__rl": true,
+          "mode": "id",
+          "value": "Settings"
+        },
+        "filterByFormula": "={Name}=\"STAFF_PHONE_NUMBER\""
+      },
+      "id": "get-staff-for-order",
+      "name": "Get Staff Phone",
+      "type": "n8n-nodes-base.airtable",
+      "typeVersion": 2,
+      "position": [1570, 500],
+      "credentials": {
+        "airtableTokenApi": {
+          "id": "airtable-creds",
+          "name": "Airtable Token"
+        }
+      }
+    },
+    {
+      "parameters": {
+        "from": "={{ $('Get Twilio Number').item.json.fields.Value }}",
+        "to": "={{ $json.fields.Value }}",
+        "message": "=🆕 NEW AI ORDER\n\n{{ $('Format Order').item.json.orderSummary }}\n\nCustomer: {{ $('Extract Order Data').item.json.callerPhone }}"
+      },
+      "id": "notify-staff-order",
+      "name": "Notify Staff of New Order",
+      "type": "n8n-nodes-base.twilio",
+      "typeVersion": 1,
+      "position": [1790, 500],
+      "credentials": {
+        "twilioApi": {
+          "id": "twilio-creds",
+          "name": "Twilio API"
+        }
+      }
+    },
+    {
+      "parameters": {
+        "operation": "search",
+        "base": {
+          "__rl": true,
+          "mode": "id",
+          "value": "={{ $env.AIRTABLE_BASE_ID }}"
+        },
+        "table": {
+          "__rl": true,
+          "mode": "id",
+          "value": "Call_Logs"
+        },
+        "filterByFormula": "={Call_SID}=\"{{ $('Extract Order Data').item.json.callSid }}\""
+      },
+      "id": "find-call-for-order",
+      "name": "Find Call for Order",
+      "type": "n8n-nodes-base.airtable",
+      "typeVersion": 2,
+      "position": [2010, 500],
+      "credentials": {
+        "airtableTokenApi": {
+          "id": "airtable-creds",
+          "name": "Airtable Token"
+        }
+      }
+    },
+    {
+      "parameters": {
+        "operation": "update",
+        "base": {
+          "__rl": true,
+          "mode": "id",
+          "value": "={{ $env.AIRTABLE_BASE_ID }}"
+        },
+        "table": {
+          "__rl": true,
+          "mode": "id",
+          "value": "Call_Logs"
+        },
+        "id": "={{ $json.id }}",
+        "columns": {
+          "mappingMode": "defineBelow",
+          "value": {
+            "Order_Placed": true,
+            "Order_Number": "={{ $('Format Order').item.json.orderNumber }}",
+            "Order_Value": "={{ $('Format Order').item.json.estimatedTotal }}"
+          }
+        }
+      },
+      "id": "link-order-to-call",
+      "name": "Link Order to Call",
+      "type": "n8n-nodes-base.airtable",
+      "typeVersion": 2,
+      "position": [2230, 500],
+      "credentials": {
+        "airtableTokenApi": {
+          "id": "airtable-creds",
+          "name": "Airtable Token"
+        }
+      }
+    },
+    {
+      "parameters": {
+        "respondWith": "json",
+        "responseBody": "={\n  \"success\": true,\n  \"orderNumber\": \"{{ $('Format Order').item.json.orderNumber }}\",\n  \"customerNotified\": true,\n  \"staffNotified\": true\n}",
+        "options": {}
+      },
+      "id": "respond-order-success",
+      "name": "Respond Order Success",
+      "type": "n8n-nodes-base.respondToWebhook",
+      "typeVersion": 1.1,
+      "position": [2450, 500]
+    }
+  ],
+  "connections": {
+    "Call Complete Webhook": {
+      "main": [
+        [
+          {
+            "node": "Extract Call End Data",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Extract Call End Data": {
+      "main": [
+        [
+          {
+            "node": "Find Call Record",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Find Call Record": {
+      "main": [
+        [
+          {
+            "node": "Get Final Conversation",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Get Final Conversation": {
+      "main": [
+        [
+          {
+            "node": "Update Call Record",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Update Call Record": {
+      "main": [
+        [
+          {
+            "node": "Calculate Call Metrics",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Calculate Call Metrics": {
+      "main": [
+        [
+          {
+            "node": "Update Call Metrics",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Update Call Metrics": {
+      "main": [
+        [
+          {
+            "node": "Respond Call Complete",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Order Complete Webhook": {
+      "main": [
+        [
+          {
+            "node": "Extract Order Data",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Extract Order Data": {
+      "main": [
+        [
+          {
+            "node": "Format Order",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Format Order": {
+      "main": [
+        [
+          {
+            "node": "Create Order Record",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Create Order Record": {
+      "main": [
+        [
+          {
+            "node": "Get Twilio Number",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Get Twilio Number": {
+      "main": [
+        [
+          {
+            "node": "Send Order Confirmation SMS",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Send Order Confirmation SMS": {
+      "main": [
+        [
+          {
+            "node": "Get Staff Phone",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Get Staff Phone": {
+      "main": [
+        [
+          {
+            "node": "Notify Staff of New Order",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Notify Staff of New Order": {
+      "main": [
+        [
+          {
+            "node": "Find Call for Order",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Find Call for Order": {
+      "main": [
+        [
+          {
+            "node": "Link Order to Call",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Link Order to Call": {
+      "main": [
+        [
+          {
+            "node": "Respond Order Success",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    }
+  },
+  "settings": {
+    "executionOrder": "v1",
+    "saveManualExecutions": true,
+    "saveExecutionProgress": true
+  },
+  "staticData": null,
+  "tags": [
+    {
+      "id": "restaurant-ai",
+      "name": "Restaurant AI"
+    }
+  ],
+  "triggerCount": 2,
+  "versionId": "1.0.0"
+}

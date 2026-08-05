@@ -1,0 +1,384 @@
+{
+  "name": "03 - Human Handoff Handler",
+  "nodes": [
+    {
+      "parameters": {
+        "httpMethod": "POST",
+        "path": "human-handoff",
+        "responseMode": "responseNode",
+        "options": {}
+      },
+      "id": "webhook-handoff",
+      "name": "Handoff Webhook",
+      "type": "n8n-nodes-base.webhook",
+      "typeVersion": 2,
+      "position": [250, 300],
+      "webhookId": "human-handoff-handler"
+    },
+    {
+      "parameters": {
+        "assignments": {
+          "assignments": [
+            {
+              "id": "call-sid",
+              "name": "callSid",
+              "value": "={{ $json.callSid }}",
+              "type": "string"
+            },
+            {
+              "id": "caller-phone",
+              "name": "callerPhone",
+              "value": "={{ $json.callerPhone }}",
+              "type": "string"
+            },
+            {
+              "id": "conversation-history",
+              "name": "conversationHistory",
+              "value": "={{ $json.conversationHistory }}",
+              "type": "string"
+            },
+            {
+              "id": "current-order",
+              "name": "currentOrder",
+              "value": "={{ $json.currentOrder }}",
+              "type": "string"
+            },
+            {
+              "id": "reason",
+              "name": "handoffReason",
+              "value": "={{ $json.reason }}",
+              "type": "string"
+            },
+            {
+              "id": "timestamp",
+              "name": "handoffTime",
+              "value": "={{ $now.toISO() }}",
+              "type": "string"
+            }
+          ]
+        },
+        "options": {}
+      },
+      "id": "extract-handoff-data",
+      "name": "Extract Handoff Data",
+      "type": "n8n-nodes-base.set",
+      "typeVersion": 3.4,
+      "position": [470, 300]
+    },
+    {
+      "parameters": {
+        "jsCode": "// Format conversation history for SMS\nconst conversationHistory = JSON.parse($input.first().json.conversationHistory || '[]');\nconst currentOrder = JSON.parse($input.first().json.currentOrder || '[]');\nconst callerPhone = $input.first().json.callerPhone;\nconst reason = $input.first().json.handoffReason;\n\n// Build summary\nlet summary = `📞 INCOMING TRANSFER\\n`;\nsummary += `From: ${callerPhone}\\n`;\nsummary += `Reason: ${reason}\\n\\n`;\n\nif (currentOrder.length > 0) {\n  summary += `🛒 ORDER SO FAR:\\n`;\n  currentOrder.forEach(item => {\n    summary += `• ${item.quantity}x ${item.item}\\n`;\n  });\n  summary += `\\n`;\n}\n\nif (conversationHistory.length > 0) {\n  summary += `💬 RECENT CONVERSATION:\\n`;\n  const recentMessages = conversationHistory.slice(-4); // Last 4 messages\n  recentMessages.forEach(msg => {\n    const role = msg.role === 'user' ? 'Customer' : 'AI';\n    summary += `${role}: ${msg.content.substring(0, 100)}${msg.content.length > 100 ? '...' : ''}\\n`;\n  });\n}\n\nreturn {\n  summary: summary,\n  orderCount: currentOrder.length,\n  messageCount: conversationHistory.length\n};"
+      },
+      "id": "format-context",
+      "name": "Format Context Summary",
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [690, 300]
+    },
+    {
+      "parameters": {
+        "operation": "search",
+        "base": {
+          "__rl": true,
+          "mode": "id",
+          "value": "={{ $env.AIRTABLE_BASE_ID }}"
+        },
+        "table": {
+          "__rl": true,
+          "mode": "id",
+          "value": "Settings"
+        },
+        "filterByFormula": "={Name}=\"STAFF_PHONE_NUMBER\""
+      },
+      "id": "get-staff-number",
+      "name": "Get Staff Phone",
+      "type": "n8n-nodes-base.airtable",
+      "typeVersion": 2,
+      "position": [910, 200],
+      "credentials": {
+        "airtableTokenApi": {
+          "id": "airtable-creds",
+          "name": "Airtable Token"
+        }
+      }
+    },
+    {
+      "parameters": {
+        "operation": "search",
+        "base": {
+          "__rl": true,
+          "mode": "id",
+          "value": "={{ $env.AIRTABLE_BASE_ID }}"
+        },
+        "table": {
+          "__rl": true,
+          "mode": "id",
+          "value": "Settings"
+        },
+        "filterByFormula": "={Name}=\"TWILIO_PHONE_NUMBER\""
+      },
+      "id": "get-twilio-number",
+      "name": "Get Twilio Number",
+      "type": "n8n-nodes-base.airtable",
+      "typeVersion": 2,
+      "position": [910, 400],
+      "credentials": {
+        "airtableTokenApi": {
+          "id": "airtable-creds",
+          "name": "Airtable Token"
+        }
+      }
+    },
+    {
+      "parameters": {
+        "from": "={{ $('Get Twilio Number').item.json.fields.Value }}",
+        "to": "={{ $('Get Staff Phone').item.json.fields.Value }}",
+        "message": "={{ $('Format Context Summary').item.json.summary }}"
+      },
+      "id": "send-sms-alert",
+      "name": "Send SMS Alert to Staff",
+      "type": "n8n-nodes-base.twilio",
+      "typeVersion": 1,
+      "position": [1130, 300],
+      "credentials": {
+        "twilioApi": {
+          "id": "twilio-creds",
+          "name": "Twilio API"
+        }
+      }
+    },
+    {
+      "parameters": {
+        "operation": "create",
+        "base": {
+          "__rl": true,
+          "mode": "id",
+          "value": "={{ $env.AIRTABLE_BASE_ID }}"
+        },
+        "table": {
+          "__rl": true,
+          "mode": "id",
+          "value": "Handoffs"
+        },
+        "columns": {
+          "mappingMode": "defineBelow",
+          "value": {
+            "Call_SID": "={{ $('Extract Handoff Data').item.json.callSid }}",
+            "Caller_Phone": "={{ $('Extract Handoff Data').item.json.callerPhone }}",
+            "Reason": "={{ $('Extract Handoff Data').item.json.handoffReason }}",
+            "Order_Context": "={{ $('Extract Handoff Data').item.json.currentOrder }}",
+            "Conversation_Context": "={{ $('Extract Handoff Data').item.json.conversationHistory }}",
+            "Summary": "={{ $('Format Context Summary').item.json.summary }}",
+            "Handoff_Time": "={{ $('Extract Handoff Data').item.json.handoffTime }}",
+            "SMS_Sent": true
+          }
+        }
+      },
+      "id": "log-handoff",
+      "name": "Log Handoff",
+      "type": "n8n-nodes-base.airtable",
+      "typeVersion": 2,
+      "position": [1350, 300],
+      "credentials": {
+        "airtableTokenApi": {
+          "id": "airtable-creds",
+          "name": "Airtable Token"
+        }
+      }
+    },
+    {
+      "parameters": {
+        "operation": "search",
+        "base": {
+          "__rl": true,
+          "mode": "id",
+          "value": "={{ $env.AIRTABLE_BASE_ID }}"
+        },
+        "table": {
+          "__rl": true,
+          "mode": "id",
+          "value": "Call_Logs"
+        },
+        "filterByFormula": "={Call_SID}=\"{{ $('Extract Handoff Data').item.json.callSid }}\""
+      },
+      "id": "find-call-log",
+      "name": "Find Call Log",
+      "type": "n8n-nodes-base.airtable",
+      "typeVersion": 2,
+      "position": [1570, 300],
+      "credentials": {
+        "airtableTokenApi": {
+          "id": "airtable-creds",
+          "name": "Airtable Token"
+        }
+      }
+    },
+    {
+      "parameters": {
+        "operation": "update",
+        "base": {
+          "__rl": true,
+          "mode": "id",
+          "value": "={{ $env.AIRTABLE_BASE_ID }}"
+        },
+        "table": {
+          "__rl": true,
+          "mode": "id",
+          "value": "Call_Logs"
+        },
+        "id": "={{ $json.id }}",
+        "columns": {
+          "mappingMode": "defineBelow",
+          "value": {
+            "Status": "Transferred",
+            "Handoff_Reason": "={{ $('Extract Handoff Data').item.json.handoffReason }}",
+            "Handoff_Time": "={{ $('Extract Handoff Data').item.json.handoffTime }}"
+          }
+        }
+      },
+      "id": "update-call-log",
+      "name": "Update Call Log",
+      "type": "n8n-nodes-base.airtable",
+      "typeVersion": 2,
+      "position": [1790, 300],
+      "credentials": {
+        "airtableTokenApi": {
+          "id": "airtable-creds",
+          "name": "Airtable Token"
+        }
+      }
+    },
+    {
+      "parameters": {
+        "respondWith": "json",
+        "responseBody": "={\n  \"success\": true,\n  \"callSid\": \"{{ $('Extract Handoff Data').item.json.callSid }}\",\n  \"handoffLogged\": true,\n  \"smsSent\": true\n}",
+        "options": {}
+      },
+      "id": "respond-success",
+      "name": "Respond Success",
+      "type": "n8n-nodes-base.respondToWebhook",
+      "typeVersion": 1.1,
+      "position": [2010, 300]
+    }
+  ],
+  "connections": {
+    "Handoff Webhook": {
+      "main": [
+        [
+          {
+            "node": "Extract Handoff Data",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Extract Handoff Data": {
+      "main": [
+        [
+          {
+            "node": "Format Context Summary",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Format Context Summary": {
+      "main": [
+        [
+          {
+            "node": "Get Staff Phone",
+            "type": "main",
+            "index": 0
+          },
+          {
+            "node": "Get Twilio Number",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Get Staff Phone": {
+      "main": [
+        [
+          {
+            "node": "Send SMS Alert to Staff",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Get Twilio Number": {
+      "main": [
+        [
+          {
+            "node": "Send SMS Alert to Staff",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Send SMS Alert to Staff": {
+      "main": [
+        [
+          {
+            "node": "Log Handoff",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Log Handoff": {
+      "main": [
+        [
+          {
+            "node": "Find Call Log",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Find Call Log": {
+      "main": [
+        [
+          {
+            "node": "Update Call Log",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Update Call Log": {
+      "main": [
+        [
+          {
+            "node": "Respond Success",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    }
+  },
+  "settings": {
+    "executionOrder": "v1",
+    "saveManualExecutions": true,
+    "saveExecutionProgress": true
+  },
+  "staticData": null,
+  "tags": [
+    {
+      "id": "restaurant-ai",
+      "name": "Restaurant AI"
+    }
+  ],
+  "triggerCount": 1,
+  "versionId": "1.0.0"
+}

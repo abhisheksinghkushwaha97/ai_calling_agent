@@ -1,0 +1,736 @@
+{
+  "name": "02 - AI Conversation Handler",
+  "nodes": [
+    {
+      "parameters": {
+        "httpMethod": "POST",
+        "path": "ai-conversation",
+        "responseMode": "responseNode",
+        "options": {}
+      },
+      "id": "webhook-ai-conversation",
+      "name": "AI Conversation Webhook",
+      "type": "n8n-nodes-base.webhook",
+      "typeVersion": 2,
+      "position": [250, 300],
+      "webhookId": "ai-conversation-handler"
+    },
+    {
+      "parameters": {
+        "assignments": {
+          "assignments": [
+            {
+              "id": "call-sid",
+              "name": "callSid",
+              "value": "={{ $json.query.callSid || $json.CallSid }}",
+              "type": "string"
+            },
+            {
+              "id": "caller-phone",
+              "name": "callerPhone",
+              "value": "={{ $json.query.callerPhone || $json.From }}",
+              "type": "string"
+            },
+            {
+              "id": "speech-result",
+              "name": "speechResult",
+              "value": "={{ $json.SpeechResult || '' }}",
+              "type": "string"
+            },
+            {
+              "id": "digits",
+              "name": "digits",
+              "value": "={{ $json.Digits || '' }}",
+              "type": "string"
+            },
+            {
+              "id": "confidence",
+              "name": "confidence",
+              "value": "={{ $json.Confidence || 0 }}",
+              "type": "number"
+            }
+          ]
+        },
+        "options": {}
+      },
+      "id": "extract-speech-data",
+      "name": "Extract Speech Data",
+      "type": "n8n-nodes-base.set",
+      "typeVersion": 3.4,
+      "position": [470, 300]
+    },
+    {
+      "parameters": {
+        "operation": "search",
+        "base": {
+          "__rl": true,
+          "mode": "id",
+          "value": "={{ $env.AIRTABLE_BASE_ID }}"
+        },
+        "table": {
+          "__rl": true,
+          "mode": "id",
+          "value": "Conversation_State"
+        },
+        "filterByFormula": "={Call_SID}=\"{{ $json.callSid }}\""
+      },
+      "id": "get-conversation-state",
+      "name": "Get Conversation State",
+      "type": "n8n-nodes-base.airtable",
+      "typeVersion": 2,
+      "position": [690, 300],
+      "credentials": {
+        "airtableTokenApi": {
+          "id": "airtable-creds",
+          "name": "Airtable Token"
+        }
+      }
+    },
+    {
+      "parameters": {
+        "conditions": {
+          "options": {
+            "caseSensitive": true,
+            "leftValue": "",
+            "typeValidation": "loose"
+          },
+          "conditions": [
+            {
+              "id": "has-state",
+              "leftValue": "={{ $json }}",
+              "rightValue": "",
+              "operator": {
+                "type": "object",
+                "operation": "notEmpty"
+              }
+            }
+          ],
+          "combinator": "and"
+        },
+        "options": {}
+      },
+      "id": "check-existing-state",
+      "name": "Has Existing State?",
+      "type": "n8n-nodes-base.if",
+      "typeVersion": 2,
+      "position": [910, 300]
+    },
+    {
+      "parameters": {
+        "operation": "search",
+        "base": {
+          "__rl": true,
+          "mode": "id",
+          "value": "={{ $env.AIRTABLE_BASE_ID }}"
+        },
+        "table": {
+          "__rl": true,
+          "mode": "id",
+          "value": "Menu"
+        },
+        "options": {}
+      },
+      "id": "get-menu",
+      "name": "Get Menu Items",
+      "type": "n8n-nodes-base.airtable",
+      "typeVersion": 2,
+      "position": [1130, 200],
+      "credentials": {
+        "airtableTokenApi": {
+          "id": "airtable-creds",
+          "name": "Airtable Token"
+        }
+      }
+    },
+    {
+      "parameters": {
+        "operation": "search",
+        "base": {
+          "__rl": true,
+          "mode": "id",
+          "value": "={{ $env.AIRTABLE_BASE_ID }}"
+        },
+        "table": {
+          "__rl": true,
+          "mode": "id",
+          "value": "Settings"
+        },
+        "options": {}
+      },
+      "id": "get-restaurant-settings",
+      "name": "Get Restaurant Settings",
+      "type": "n8n-nodes-base.airtable",
+      "typeVersion": 2,
+      "position": [1130, 350],
+      "credentials": {
+        "airtableTokenApi": {
+          "id": "airtable-creds",
+          "name": "Airtable Token"
+        }
+      }
+    },
+    {
+      "parameters": {
+        "assignments": {
+          "assignments": [
+            {
+              "id": "menu-formatted",
+              "name": "menuFormatted",
+              "value": "={{ $('Get Menu Items').all().map(item => `${item.json.fields.Name}: $${item.json.fields.Price} - ${item.json.fields.Description}`).join('\\n') }}",
+              "type": "string"
+            },
+            {
+              "id": "restaurant-name",
+              "name": "restaurantName",
+              "value": "={{ $('Get Restaurant Settings').all().find(s => s.json.fields.Name === 'RESTAURANT_NAME')?.json.fields.Value || 'Our Restaurant' }}",
+              "type": "string"
+            },
+            {
+              "id": "hours",
+              "name": "hours",
+              "value": "={{ $('Get Restaurant Settings').all().find(s => s.json.fields.Name === 'HOURS')?.json.fields.Value || '11am-10pm' }}",
+              "type": "string"
+            },
+            {
+              "id": "conversation-history",
+              "name": "conversationHistory",
+              "value": "={{ $('Get Conversation State').item.json.fields?.Conversation_History || '[]' }}",
+              "type": "string"
+            },
+            {
+              "id": "current-order",
+              "name": "currentOrder",
+              "value": "={{ $('Get Conversation State').item.json.fields?.Current_Order || '[]' }}",
+              "type": "string"
+            },
+            {
+              "id": "clarification-count",
+              "name": "clarificationCount",
+              "value": "={{ $('Get Conversation State').item.json.fields?.Clarification_Count || 0 }}",
+              "type": "number"
+            }
+          ]
+        },
+        "options": {}
+      },
+      "id": "prepare-context",
+      "name": "Prepare AI Context",
+      "type": "n8n-nodes-base.set",
+      "typeVersion": 3.4,
+      "position": [1350, 200]
+    },
+    {
+      "parameters": {
+        "operation": "create",
+        "base": {
+          "__rl": true,
+          "mode": "id",
+          "value": "={{ $env.AIRTABLE_BASE_ID }}"
+        },
+        "table": {
+          "__rl": true,
+          "mode": "id",
+          "value": "Conversation_State"
+        },
+        "columns": {
+          "mappingMode": "defineBelow",
+          "value": {
+            "Call_SID": "={{ $('Extract Speech Data').item.json.callSid }}",
+            "Caller_Phone": "={{ $('Extract Speech Data').item.json.callerPhone }}",
+            "State": "greeting",
+            "Conversation_History": "[]",
+            "Current_Order": "[]",
+            "Clarification_Count": 0,
+            "Created_At": "={{ $now.toISO() }}"
+          }
+        }
+      },
+      "id": "create-conversation-state",
+      "name": "Create New State",
+      "type": "n8n-nodes-base.airtable",
+      "typeVersion": 2,
+      "position": [1130, 500],
+      "credentials": {
+        "airtableTokenApi": {
+          "id": "airtable-creds",
+          "name": "Airtable Token"
+        }
+      }
+    },
+    {
+      "parameters": {
+        "model": "gpt-4o",
+        "options": {
+          "temperature": 0.7,
+          "maxTokens": 500
+        },
+        "messages": {
+          "values": [
+            {
+              "role": "system",
+              "content": "=You are a friendly and professional phone order assistant for {{ $json.restaurantName }}.\n\nYour responsibilities:\n1. Take food orders accurately\n2. Answer questions about menu, hours, location\n3. Confirm orders before finalizing\n4. Detect when to transfer to human staff\n\nMENU:\n{{ $json.menuFormatted }}\n\nRESTAURANT HOURS: {{ $json.hours }}\n\nRULES:\n- Keep responses SHORT (under 30 words for phone)\n- Always confirm items and quantities\n- If customer mentions allergies, dietary restrictions, or complex customizations → respond with [TRANSFER_TO_HUMAN]\n- If customer expresses frustration or asks for a person → respond with [TRANSFER_TO_HUMAN]\n- If you don't understand after 2 attempts → respond with [TRANSFER_TO_HUMAN]\n- When order is complete and confirmed → respond with [ORDER_COMPLETE]\n\nCURRENT ORDER:\n{{ $json.currentOrder }}\n\nCONVERSATION HISTORY:\n{{ $json.conversationHistory }}\n\nRespond naturally as if speaking on the phone. End with a question or confirmation."
+            },
+            {
+              "role": "user",
+              "content": "=Customer said: \"{{ $('Extract Speech Data').item.json.speechResult }}\"\n\n{{ $('Extract Speech Data').item.json.speechResult === '' ? 'This is the start of the call. Greet the customer and ask how you can help them.' : '' }}"
+            }
+          ]
+        }
+      },
+      "id": "ai-response",
+      "name": "Generate AI Response",
+      "type": "@n8n/n8n-nodes-langchain.openAi",
+      "typeVersion": 1.7,
+      "position": [1570, 200],
+      "credentials": {
+        "openAiApi": {
+          "id": "openai-creds",
+          "name": "OpenAI API"
+        }
+      }
+    },
+    {
+      "parameters": {
+        "conditions": {
+          "options": {
+            "caseSensitive": true,
+            "leftValue": "",
+            "typeValidation": "strict"
+          },
+          "conditions": [
+            {
+              "id": "transfer-check",
+              "leftValue": "={{ $json.message.content }}",
+              "rightValue": "[TRANSFER_TO_HUMAN]",
+              "operator": {
+                "type": "string",
+                "operation": "contains"
+              }
+            }
+          ],
+          "combinator": "and"
+        },
+        "options": {}
+      },
+      "id": "check-transfer",
+      "name": "Needs Human?",
+      "type": "n8n-nodes-base.if",
+      "typeVersion": 2,
+      "position": [1790, 200]
+    },
+    {
+      "parameters": {
+        "conditions": {
+          "options": {
+            "caseSensitive": true,
+            "leftValue": "",
+            "typeValidation": "strict"
+          },
+          "conditions": [
+            {
+              "id": "order-complete-check",
+              "leftValue": "={{ $json.message.content }}",
+              "rightValue": "[ORDER_COMPLETE]",
+              "operator": {
+                "type": "string",
+                "operation": "contains"
+              }
+            }
+          ],
+          "combinator": "and"
+        },
+        "options": {}
+      },
+      "id": "check-order-complete",
+      "name": "Order Complete?",
+      "type": "n8n-nodes-base.if",
+      "typeVersion": 2,
+      "position": [2010, 300]
+    },
+    {
+      "parameters": {
+        "respondWith": "text",
+        "responseBody": "=<?xml version=\"1.0\" encoding=\"UTF-8\"?>\n<Response>\n    <Say voice=\"Polly.Joanna\">{{ $json.message.content.replace('[TRANSFER_TO_HUMAN]', 'Let me connect you with our staff right away.').replace('[ORDER_COMPLETE]', '') }}</Say>\n    <Gather input=\"speech\" timeout=\"5\" speechTimeout=\"auto\" action=\"{{ $env.N8N_WEBHOOK_URL }}/webhook/ai-conversation?callSid={{ $('Extract Speech Data').item.json.callSid }}&amp;callerPhone={{ $('Extract Speech Data').item.json.callerPhone }}\" method=\"POST\">\n        <Say voice=\"Polly.Joanna\"></Say>\n    </Gather>\n    <Redirect method=\"POST\">{{ $env.N8N_WEBHOOK_URL }}/webhook/ai-conversation?callSid={{ $('Extract Speech Data').item.json.callSid }}&amp;callerPhone={{ $('Extract Speech Data').item.json.callerPhone }}</Redirect>\n</Response>",
+        "options": {
+          "responseHeaders": {
+            "entries": [
+              {
+                "name": "Content-Type",
+                "value": "application/xml"
+              }
+            ]
+          }
+        }
+      },
+      "id": "continue-conversation",
+      "name": "Continue Conversation",
+      "type": "n8n-nodes-base.respondToWebhook",
+      "typeVersion": 1.1,
+      "position": [2230, 400]
+    },
+    {
+      "parameters": {
+        "method": "POST",
+        "url": "={{ $env.N8N_WEBHOOK_URL }}/webhook/human-handoff",
+        "sendBody": true,
+        "bodyParameters": {
+          "parameters": [
+            {
+              "name": "callSid",
+              "value": "={{ $('Extract Speech Data').item.json.callSid }}"
+            },
+            {
+              "name": "callerPhone",
+              "value": "={{ $('Extract Speech Data').item.json.callerPhone }}"
+            },
+            {
+              "name": "conversationHistory",
+              "value": "={{ $('Prepare AI Context').item.json.conversationHistory }}"
+            },
+            {
+              "name": "currentOrder",
+              "value": "={{ $('Prepare AI Context').item.json.currentOrder }}"
+            },
+            {
+              "name": "reason",
+              "value": "AI detected need for human assistance"
+            }
+          ]
+        },
+        "options": {}
+      },
+      "id": "trigger-handoff",
+      "name": "Trigger Handoff",
+      "type": "n8n-nodes-base.httpRequest",
+      "typeVersion": 4.2,
+      "position": [2010, 100]
+    },
+    {
+      "parameters": {
+        "respondWith": "text",
+        "responseBody": "=<?xml version=\"1.0\" encoding=\"UTF-8\"?>\n<Response>\n    <Say voice=\"Polly.Joanna\">One moment please, I'm connecting you with our team.</Say>\n    <Dial timeout=\"30\" action=\"{{ $env.N8N_WEBHOOK_URL }}/webhook/call-complete?callSid={{ $('Extract Speech Data').item.json.callSid }}\">\n        <Number>{{ $env.STAFF_PHONE_NUMBER }}</Number>\n    </Dial>\n</Response>",
+        "options": {
+          "responseHeaders": {
+            "entries": [
+              {
+                "name": "Content-Type",
+                "value": "application/xml"
+              }
+            ]
+          }
+        }
+      },
+      "id": "transfer-response",
+      "name": "Transfer to Human",
+      "type": "n8n-nodes-base.respondToWebhook",
+      "typeVersion": 1.1,
+      "position": [2230, 100]
+    },
+    {
+      "parameters": {
+        "method": "POST",
+        "url": "={{ $env.N8N_WEBHOOK_URL }}/webhook/order-complete",
+        "sendBody": true,
+        "bodyParameters": {
+          "parameters": [
+            {
+              "name": "callSid",
+              "value": "={{ $('Extract Speech Data').item.json.callSid }}"
+            },
+            {
+              "name": "callerPhone",
+              "value": "={{ $('Extract Speech Data').item.json.callerPhone }}"
+            },
+            {
+              "name": "order",
+              "value": "={{ $('Prepare AI Context').item.json.currentOrder }}"
+            }
+          ]
+        },
+        "options": {}
+      },
+      "id": "submit-order",
+      "name": "Submit Order",
+      "type": "n8n-nodes-base.httpRequest",
+      "typeVersion": 4.2,
+      "position": [2230, 200]
+    },
+    {
+      "parameters": {
+        "respondWith": "text",
+        "responseBody": "=<?xml version=\"1.0\" encoding=\"UTF-8\"?>\n<Response>\n    <Say voice=\"Polly.Joanna\">{{ $('Generate AI Response').item.json.message.content.replace('[ORDER_COMPLETE]', '') }} Your order has been placed. Thank you for calling {{ $('Prepare AI Context').item.json.restaurantName }}!</Say>\n    <Hangup/>\n</Response>",
+        "options": {
+          "responseHeaders": {
+            "entries": [
+              {
+                "name": "Content-Type",
+                "value": "application/xml"
+              }
+            ]
+          }
+        }
+      },
+      "id": "order-complete-response",
+      "name": "Order Complete Response",
+      "type": "n8n-nodes-base.respondToWebhook",
+      "typeVersion": 1.1,
+      "position": [2450, 200]
+    },
+    {
+      "parameters": {
+        "operation": "update",
+        "base": {
+          "__rl": true,
+          "mode": "id",
+          "value": "={{ $env.AIRTABLE_BASE_ID }}"
+        },
+        "table": {
+          "__rl": true,
+          "mode": "id",
+          "value": "Conversation_State"
+        },
+        "id": "={{ $('Get Conversation State').item.json.id }}",
+        "columns": {
+          "mappingMode": "defineBelow",
+          "value": {
+            "Conversation_History": "={{ JSON.stringify([...JSON.parse($('Prepare AI Context').item.json.conversationHistory || '[]'), { role: 'user', content: $('Extract Speech Data').item.json.speechResult }, { role: 'assistant', content: $('Generate AI Response').item.json.message.content }]) }}",
+            "Updated_At": "={{ $now.toISO() }}"
+          }
+        }
+      },
+      "id": "update-conversation-state",
+      "name": "Update Conversation State",
+      "type": "n8n-nodes-base.airtable",
+      "typeVersion": 2,
+      "position": [2670, 400],
+      "credentials": {
+        "airtableTokenApi": {
+          "id": "airtable-creds",
+          "name": "Airtable Token"
+        }
+      }
+    },
+    {
+      "parameters": {
+        "jsCode": "// Extract order items from AI response and update order\nconst aiResponse = $('Generate AI Response').item.json.message.content;\nconst currentOrder = JSON.parse($('Prepare AI Context').item.json.currentOrder || '[]');\nconst speechResult = $('Extract Speech Data').item.json.speechResult;\n\n// Simple order extraction logic - can be enhanced\nconst orderPatterns = [\n  /added? (\\d+)?\\s*(.+?) to your order/i,\n  /that's (\\d+)?\\s*(.+?) added/i,\n  /(\\d+)?\\s*(.+?) - got it/i\n];\n\nlet newItems = [];\nfor (const pattern of orderPatterns) {\n  const match = aiResponse.match(pattern);\n  if (match) {\n    newItems.push({\n      quantity: parseInt(match[1]) || 1,\n      item: match[2].trim(),\n      addedAt: new Date().toISOString()\n    });\n  }\n}\n\nconst updatedOrder = [...currentOrder, ...newItems];\n\nreturn {\n  updatedOrder: JSON.stringify(updatedOrder),\n  orderCount: updatedOrder.length\n};"
+      },
+      "id": "extract-order-items",
+      "name": "Extract Order Items",
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [2450, 400]
+    }
+  ],
+  "connections": {
+    "AI Conversation Webhook": {
+      "main": [
+        [
+          {
+            "node": "Extract Speech Data",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Extract Speech Data": {
+      "main": [
+        [
+          {
+            "node": "Get Conversation State",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Get Conversation State": {
+      "main": [
+        [
+          {
+            "node": "Has Existing State?",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Has Existing State?": {
+      "main": [
+        [
+          {
+            "node": "Get Menu Items",
+            "type": "main",
+            "index": 0
+          },
+          {
+            "node": "Get Restaurant Settings",
+            "type": "main",
+            "index": 0
+          }
+        ],
+        [
+          {
+            "node": "Create New State",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Get Menu Items": {
+      "main": [
+        [
+          {
+            "node": "Prepare AI Context",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Get Restaurant Settings": {
+      "main": [
+        [
+          {
+            "node": "Prepare AI Context",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Create New State": {
+      "main": [
+        [
+          {
+            "node": "Get Menu Items",
+            "type": "main",
+            "index": 0
+          },
+          {
+            "node": "Get Restaurant Settings",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Prepare AI Context": {
+      "main": [
+        [
+          {
+            "node": "Generate AI Response",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Generate AI Response": {
+      "main": [
+        [
+          {
+            "node": "Needs Human?",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Needs Human?": {
+      "main": [
+        [
+          {
+            "node": "Trigger Handoff",
+            "type": "main",
+            "index": 0
+          }
+        ],
+        [
+          {
+            "node": "Order Complete?",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Trigger Handoff": {
+      "main": [
+        [
+          {
+            "node": "Transfer to Human",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Order Complete?": {
+      "main": [
+        [
+          {
+            "node": "Submit Order",
+            "type": "main",
+            "index": 0
+          }
+        ],
+        [
+          {
+            "node": "Continue Conversation",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Submit Order": {
+      "main": [
+        [
+          {
+            "node": "Order Complete Response",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Continue Conversation": {
+      "main": [
+        [
+          {
+            "node": "Extract Order Items",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Extract Order Items": {
+      "main": [
+        [
+          {
+            "node": "Update Conversation State",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    }
+  },
+  "settings": {
+    "executionOrder": "v1",
+    "saveManualExecutions": true,
+    "saveExecutionProgress": true
+  },
+  "staticData": null,
+  "tags": [
+    {
+      "id": "restaurant-ai",
+      "name": "Restaurant AI"
+    }
+  ],
+  "triggerCount": 1,
+  "versionId": "1.0.0"
+}
